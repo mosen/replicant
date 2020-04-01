@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"github.com/Unbabel/replicant/client"
@@ -18,18 +19,14 @@ var Add = &cobra.Command{
 		var err error
 		var tx transaction.Config
 
-		file := cmdutil.GetFlagString(cmd, "file")
-		if file == "" {
-			die("Transaction file must be specified")
+		if err := loadFile(cmdutil.GetFlagString(cmd, "file"), &tx); err != nil {
+			die("Error reading transaction file: %s", err)
 		}
 
-		buf, err := ioutil.ReadFile(file)
-		if err != nil {
-			die("Error reading transaction: %s", err)
-		}
-
-		if err = yaml.Unmarshal(buf, &tx); err != nil {
-			die("Error reading transaction: %s", err)
+		if tx.Driver == "go_binary" {
+			if err := loadFile(cmdutil.GetFlagString(cmd, "binary"), &tx.Binary); err != nil {
+				die("Error reading transaction file: %s", err)
+			}
 		}
 
 		c, err := client.New(client.Config{
@@ -50,4 +47,21 @@ var Add = &cobra.Command{
 		}
 
 	},
+}
+
+func loadFile(path string, out interface{}) error {
+	if path == "" {
+		return fmt.Errorf("path must be specified")
+	}
+
+	buf, err := ioutil.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("Error reading file '%s': %s", path, err)
+	}
+
+	if err = yaml.Unmarshal(buf, out); err != nil {
+		return fmt.Errorf("Error reading file '%s': %s", path, err)
+	}
+
+	return nil
 }
